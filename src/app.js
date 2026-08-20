@@ -17,6 +17,8 @@ app.use(express.static('public')); // For testing client
 // Console log every incoming request
 app.use((req, res, next) => {
   console.log(`[API REQUEST] ${req.method} ${req.url}`);
+  if (Object.keys(req.body).length > 0) console.log('  Body:', req.body);
+  if (Object.keys(req.query).length > 0) console.log('  Query:', req.query);
   next();
 });
 

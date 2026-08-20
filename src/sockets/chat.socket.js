@@ -9,8 +9,9 @@ const initChatSocket = (io) => {
     socket.on('register', (userId) => {
       connectedUsers.set(userId, socket.id);
       console.log(`User ${userId} registered with socket ${socket.id}`);
-      // Acknowledge registration
-      socket.emit('registered', { status: 'success' });
+      // Acknowledge registration and send the list of currently online users
+      const onlineUsers = Array.from(connectedUsers.keys());
+      socket.emit('registered', { status: 'success', onlineUsers });
       
       // Notify others that this user is online
       socket.broadcast.emit('user_online', { userId });
@@ -18,6 +19,7 @@ const initChatSocket = (io) => {
 
     // 1. Sending a message
     socket.on('send_message', (data) => {
+      console.log('[SOCKET EVENT] send_message', data);
       /*
         Expected data format:
         {
@@ -55,6 +57,7 @@ const initChatSocket = (io) => {
 
     // 2. Message Delivered
     socket.on('message_delivered', (data) => {
+      console.log('[SOCKET EVENT] message_delivered', data);
       const { messageId, senderId, receiverId, conversationId } = data;
       const originalSenderSocketId = connectedUsers.get(senderId);
 
@@ -66,6 +69,7 @@ const initChatSocket = (io) => {
 
     // 3. Message Read
     socket.on('message_read', (data) => {
+      console.log('[SOCKET EVENT] message_read', data);
       const { messageId, senderId, receiverId, conversationId } = data;
       const originalSenderSocketId = connectedUsers.get(senderId);
 
@@ -77,6 +81,7 @@ const initChatSocket = (io) => {
 
     // 4. Typing Events
     socket.on('typing', (data) => {
+      console.log('[SOCKET EVENT] typing', data);
       const { senderId, receiverId, conversationId } = data;
       const recipientSocketId = connectedUsers.get(receiverId);
       if (recipientSocketId) {
@@ -85,6 +90,7 @@ const initChatSocket = (io) => {
     });
 
     socket.on('stop_typing', (data) => {
+      console.log('[SOCKET EVENT] stop_typing', data);
       const { senderId, receiverId, conversationId } = data;
       const recipientSocketId = connectedUsers.get(receiverId);
       if (recipientSocketId) {
