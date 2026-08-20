@@ -1,3 +1,5 @@
+const Message = require('../models/message.model');
+
 // In-memory mapping of userId to socket.id
 const connectedUsers = new Map();
 
@@ -18,7 +20,7 @@ const initChatSocket = (io) => {
     });
 
     // 1. Sending a message
-    socket.on('send_message', (data) => {
+    socket.on('send_message', async (data) => {
       console.log('[SOCKET EVENT] send_message', data);
       /*
         Expected data format:
@@ -32,7 +34,26 @@ const initChatSocket = (io) => {
           type: "text" // text/ audio/ video/none
         }
       */
-      const { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
+      const { messageId, conversationId, senderId, senderName, receiverId, receiverName, text, createdAt, type } = data;
+
+      // Save message to database
+      try {
+        const newMessage = new Message({
+          messageId,
+          conversationId,
+          senderId,
+          senderName,
+          receiverId,
+          receiverName,
+          text,
+          type: type || 'text',
+          status: 'sent',
+          createdAt: createdAt || new Date()
+        });
+        await newMessage.save();
+      } catch (err) {
+        console.error('Error saving message to DB:', err);
+      }
 
       // Immediately acknowledge to sender that message is sent (Single tick)
       socket.emit('message_status', { messageId, status: 'sent', receiverId, conversationId });
@@ -56,9 +77,16 @@ const initChatSocket = (io) => {
     });
 
     // 2. Message Delivered
-    socket.on('message_delivered', (data) => {
+    socket.on('message_delivered', async (data) => {
       console.log('[SOCKET EVENT] message_delivered', data);
       const { messageId, senderId, receiverId, conversationId } = data;
+      
+      try {
+        await Message.findOneAndUpdate({ messageId }, { status: 'delivered' });
+      } catch (err) {
+        console.error('Error updating message status to delivered:', err);
+      }
+
       const originalSenderSocketId = connectedUsers.get(senderId);
 
       if (originalSenderSocketId) {
@@ -68,9 +96,16 @@ const initChatSocket = (io) => {
     });
 
     // 3. Message Read
-    socket.on('message_read', (data) => {
+    socket.on('message_read', async (data) => {
       console.log('[SOCKET EVENT] message_read', data);
       const { messageId, senderId, receiverId, conversationId } = data;
+
+      try {
+        await Message.findOneAndUpdate({ messageId }, { status: 'read' });
+      } catch (err) {
+        console.error('Error updating message status to read:', err);
+      }
+
       const originalSenderSocketId = connectedUsers.get(senderId);
 
       if (originalSenderSocketId) {

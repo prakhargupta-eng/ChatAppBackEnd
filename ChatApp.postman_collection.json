@@ -82,6 +82,31 @@
       ]
     },
     {
+      "name": "Chats",
+      "item": [
+        {
+          "name": "Get Chat History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/chats/userA_userB",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "chats",
+                "userA_userB"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Socket.IO Details",
       "description": "Note: Create a new Socket.IO request in Postman and connect to http://localhost:3000\n\nEVENTS TO EMIT:\n1. 'register': Emit with text 'your_user_id'\n2. 'send_message': Emit JSON -> {\"messageId\": \"msg_123\", \"conversationId\": \"conv_456\", \"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"text\": \"Hello\", \"createdAt\": \"2026-08-20T07:30:00Z\", \"type\": \"text\"}\n3. 'message_delivered': Emit JSON -> {\"messageId\": \"msg_123\", \"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"conversationId\": \"conv_456\"}\n4. 'message_read': Emit JSON -> same as message_delivered\n5. 'typing': Emit JSON -> {\"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"conversationId\": \"conv_456\"}\n6. 'stop_typing': Emit JSON -> same as typing\n\nEVENTS TO LISTEN FOR:\n- registered\n- new_message\n- message_status\n- message_delivered\n- message_read\n- typing\n- stop_typing\n- user_online\n- user_offline",
       "item": [
