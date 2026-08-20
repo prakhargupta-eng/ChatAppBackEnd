@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ChatApp Test</title>
+  <style>
+    body { font-family: sans-serif; display: flex; gap: 20px; padding: 20px; }
+    .client { border: 1px solid #ccc; padding: 15px; width: 300px; }
+    .messages { height: 200px; border: 1px solid #eee; overflow-y: scroll; margin-bottom: 10px; padding: 5px;}
+    .msg { margin-bottom: 5px; }
+    .status { font-size: 0.8em; color: gray; margin-left: 5px; }
+    .sent { color: gray; } /* Single tick */
+    .delivered { color: gray; font-weight: bold; } /* Double tick */
+    .read { color: blue; font-weight: bold; } /* Blue double tick */
+  </style>
+</head>
+<body>
+
+  <!-- Client 1 -->
+  <div class="client" id="client1">
+    <h3>User A (ID: 1)</h3>
+    <div class="messages" id="msgs1"></div>
+    <input type="text" id="input1" placeholder="Type message to User B">
+    <button onclick="sendMsg('1', '2', 'input1', 'msgs1')">Send</button>
+  </div>
+
+  <!-- Client 2 -->
+  <div class="client" id="client2">
+    <h3>User B (ID: 2)</h3>
+    <div class="messages" id="msgs2"></div>
+    <input type="text" id="input2" placeholder="Type message to User A">
+    <button onclick="sendMsg('2', '1', 'input2', 'msgs2')">Send</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // Create two separate socket connections for testing
+    const socket1 = io();
+    const socket2 = io();
+
+    // Register them immediately
+    socket1.on('connect', () => { socket1.emit('register', '1'); });
+    socket2.on('connect', () => { socket2.emit('register', '2'); });
+
+    function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+    function appendMsg(divId, text, msgId, isSelf) {
+      const msgs = document.getElementById(divId);
+      const m = document.createElement('div');
+      m.className = 'msg';
+      m.id = `msg-${divId}-${msgId}`;
+      if (isSelf) {
+        m.innerHTML = `You: ${text} <span class="status sent" id="status-${msgId}">✓</span>`;
+      } else {
+        m.innerHTML = `Them: ${text}`;
+      }
+      msgs.appendChild(m);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function updateStatus(msgId, status) {
+      const el1 = document.getElementById(`status-${msgId}`);
+      if (el1) {
+        if (status === 'sent') el1.innerHTML = '✓';
+        if (status === 'delivered') { el1.innerHTML = '✓✓'; el1.className = 'status delivered'; }
+        if (status === 'read') { el1.innerHTML = '✓✓'; el1.className = 'status read'; }
+      }
+    }
+
+    function sendMsg(from, to, inputId, msgsId) {
+      const input = document.getElementById(inputId);
+      const text = input.value;
+      if (!text) return;
+      const msgId = generateId();
+      
+      const socket = from === '1' ? socket1 : socket2;
+      
+      // Append to own UI
+      appendMsg(msgsId, text, msgId, true);
+      
+      socket.emit('send_message', { to, from, content: text, messageId: msgId });
+      input.value = '';
+    }
+
+    // Handle receiving messages
+    function setupReceiver(socket, ownId, msgsId) {
+      socket.on('receive_message', (data) => {
+        appendMsg(msgsId, data.content, data.messageId, false);
+        // Automatically emit delivered
+        socket.emit('message_delivered', { messageId: data.messageId, from: data.from, to: ownId });
+        
+        // Simulate reading after 2 seconds
+        setTimeout(() => {
+          socket.emit('message_read', { messageId: data.messageId, from: data.from, to: ownId });
+          // Optional: visually show it was read locally
+        }, 2000);
+      });
+
+      socket.on('message_status', (data) => {
+        updateStatus(data.messageId, data.status);
+      });
+    }
+
+    setupReceiver(socket1, '1', 'msgs1');
+    setupReceiver(socket2, '2', 'msgs2');
+
+  </script>
+</body>
+</html>
