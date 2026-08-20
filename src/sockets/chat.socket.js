@@ -1,4 +1,5 @@
 const Message = require('../models/message.model');
+const User = require('../models/user.model');
 
 // In-memory mapping of userId to socket.id
 const connectedUsers = new Map();
@@ -22,22 +23,22 @@ const initChatSocket = (io) => {
     // 1. Sending a message
     socket.on('send_message', async (data) => {
       console.log('[SOCKET EVENT] send_message', data);
-      /*
-        Expected data format:
-        {
-          messageId: "msg_123",
-          conversationId: "conversation_456",
-          senderId: "user_A",
-          receiverId: "user_B",
-          text: "Hello Rahul",
-          createdAt: "2026-08-20T07:30:00Z",
-          type: "text" // text/ audio/ video/none
-        }
-      */
-      const { messageId, conversationId, senderId, senderName, receiverId, receiverName, text, createdAt, type } = data;
+      
+      const { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
+      let { senderName, receiverName } = data;
 
       // Save message to database
       try {
+        // If frontend didn't send names, fetch them from DB
+        if (!senderName || !receiverName) {
+          const [sender, receiver] = await Promise.all([
+            User.findById(senderId),
+            User.findById(receiverId)
+          ]);
+          if (sender) senderName = sender.username;
+          if (receiver) receiverName = receiver.username;
+        }
+
         const newMessage = new Message({
           messageId,
           conversationId,
