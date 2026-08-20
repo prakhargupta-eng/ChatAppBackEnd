@@ -11,54 +11,84 @@ const initChatSocket = (io) => {
       console.log(`User ${userId} registered with socket ${socket.id}`);
       // Acknowledge registration
       socket.emit('registered', { status: 'success' });
+      
+      // Notify others that this user is online
+      socket.broadcast.emit('user_online', { userId });
     });
 
     // 1. Sending a message
     socket.on('send_message', (data) => {
-      // data: { to: 'userB_id', content: 'hello', messageId: '123', from: 'userA_id' }
-      const { to, content, messageId, from } = data;
+      /*
+        Expected data format:
+        {
+          messageId: "msg_123",
+          conversationId: "conversation_456",
+          senderId: "user_A",
+          receiverId: "user_B",
+          text: "Hello Rahul",
+          createdAt: "2026-08-20T07:30:00Z",
+          type: "text" // text/ audio/ video/none
+        }
+      */
+      const { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
 
       // Immediately acknowledge to sender that message is sent (Single tick)
-      socket.emit('message_status', { messageId, status: 'sent', to });
+      socket.emit('message_status', { messageId, status: 'sent', receiverId, conversationId });
 
       // Check if recipient is connected
-      const recipientSocketId = connectedUsers.get(to);
+      const recipientSocketId = connectedUsers.get(receiverId);
       if (recipientSocketId) {
-        // Forward message to recipient
-        io.to(recipientSocketId).emit('receive_message', {
+        // Forward message to recipient using 'new_message' event
+        io.to(recipientSocketId).emit('new_message', {
           messageId,
-          content,
-          from,
-          timestamp: new Date()
+          conversationId,
+          senderId,
+          receiverId,
+          text,
+          createdAt,
+          type
         });
       } else {
-        // Here you might typically save to DB as 'pending'. 
-        // For this temporary app, we just log it or notify the sender.
-        console.log(`User ${to} is offline. Message not delivered.`);
+        console.log(`User ${receiverId} is offline. Message not delivered.`);
       }
     });
 
     // 2. Message Delivered
     socket.on('message_delivered', (data) => {
-      // data: { messageId: '123', from: 'userA_id', to: 'userB_id' } (from is the original sender)
-      const { messageId, from } = data;
-      const senderSocketId = connectedUsers.get(from);
+      const { messageId, senderId, receiverId, conversationId } = data;
+      const originalSenderSocketId = connectedUsers.get(senderId);
 
-      if (senderSocketId) {
+      if (originalSenderSocketId) {
         // Forward 'delivered' status to original sender (Double tick)
-        io.to(senderSocketId).emit('message_status', { messageId, status: 'delivered', to: data.to });
+        io.to(originalSenderSocketId).emit('message_delivered', { messageId, receiverId, conversationId });
       }
     });
 
     // 3. Message Read
     socket.on('message_read', (data) => {
-      // data: { messageId: '123', from: 'userA_id', to: 'userB_id' }
-      const { messageId, from } = data;
-      const senderSocketId = connectedUsers.get(from);
+      const { messageId, senderId, receiverId, conversationId } = data;
+      const originalSenderSocketId = connectedUsers.get(senderId);
 
-      if (senderSocketId) {
+      if (originalSenderSocketId) {
         // Forward 'read' status to original sender (Blue double tick)
-        io.to(senderSocketId).emit('message_status', { messageId, status: 'read', to: data.to });
+        io.to(originalSenderSocketId).emit('message_read', { messageId, receiverId, conversationId });
+      }
+    });
+
+    // 4. Typing Events
+    socket.on('typing', (data) => {
+      const { senderId, receiverId, conversationId } = data;
+      const recipientSocketId = connectedUsers.get(receiverId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('typing', { senderId, conversationId });
+      }
+    });
+
+    socket.on('stop_typing', (data) => {
+      const { senderId, receiverId, conversationId } = data;
+      const recipientSocketId = connectedUsers.get(receiverId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('stop_typing', { senderId, conversationId });
       }
     });
 
@@ -70,6 +100,9 @@ const initChatSocket = (io) => {
         if (sockId === socket.id) {
           connectedUsers.delete(userId);
           console.log(`Removed user ${userId} from registry`);
+          
+          // Notify others that this user is offline
+          socket.broadcast.emit('user_offline', { userId });
           break;
         }
       }
