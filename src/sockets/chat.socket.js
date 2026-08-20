@@ -1,5 +1,6 @@
 const Message = require('../models/message.model');
 const User = require('../models/user.model');
+const crypto = require('crypto');
 
 // In-memory mapping of userId to socket.id
 const connectedUsers = new Map();
@@ -24,8 +25,19 @@ const initChatSocket = (io) => {
     socket.on('send_message', async (data) => {
       console.log('[SOCKET EVENT] send_message', data);
       
-      const { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
+      let { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
       let { senderName, receiverName } = data;
+
+      // 1. Generate messageId on backend if frontend doesn't send it
+      if (!messageId) {
+        messageId = crypto.randomUUID();
+      }
+
+      // 2. Generate conversationId on backend if frontend doesn't send it
+      if (!conversationId) {
+        // Sort IDs alphabetically to ensure consistency regardless of who sends first
+        conversationId = [senderId, receiverId].sort().join('_');
+      }
 
       // Save message to database
       try {
