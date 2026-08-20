@@ -21,4 +21,16 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-module.exports = { getMe, getAllUsers };
+const updateFCMToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) return res.status(400).json({ error: 'Missing fcmToken' });
+    
+    await User.findByIdAndUpdate(req.user.userId, { fcmToken });
+    res.status(200).json({ message: 'FCM Token updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { getMe, getAllUsers, updateFCMToken };

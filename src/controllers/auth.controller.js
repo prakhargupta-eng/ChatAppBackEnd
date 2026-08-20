@@ -8,17 +8,21 @@ const generateToken = (userId) => {
 
 // Dummy register/login for testing purposes
 const loginOrRegister = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, fcmToken } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
 
   try {
     let user = await User.findOne({ username });
     if (!user) {
       // Create user if not exists (dummy logic)
-      user = new User({ username, password }); // Password should be hashed in a real app!
+      user = new User({ username, password, fcmToken }); // Password should be hashed in a real app!
       await user.save();
     } else if (user.password !== password) {
       return res.status(401).json({ error: 'Invalid password' });
+    } else if (fcmToken) {
+      // Update existing user with new fcmToken if provided
+      user.fcmToken = fcmToken;
+      await user.save();
     }
 
     const token = generateToken(user._id);

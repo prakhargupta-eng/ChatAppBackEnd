@@ -1,5 +1,6 @@
 const Message = require('../models/message.model');
 const User = require('../models/user.model');
+const { admin } = require('../config/firebase');
 
 // In-memory mapping of userId to socket.id
 const connectedUsers = new Map();
@@ -73,7 +74,29 @@ const initChatSocket = (io) => {
           type
         });
       } else {
-        console.log(`User ${receiverId} is offline. Message not delivered.`);
+        console.log(`User ${receiverId} is offline. Attempting to send Push Notification...`);
+        try {
+          const receiver = await User.findById(receiverId);
+          if (receiver && receiver.fcmToken) {
+            await admin.messaging().send({
+              token: receiver.fcmToken,
+              notification: {
+                title: senderName || 'New Message',
+                body: text
+              },
+              data: {
+                conversationId,
+                senderId,
+                messageId
+              }
+            });
+            console.log(`Push notification sent to user ${receiverId}`);
+          } else {
+            console.log(`User ${receiverId} does not have an FCM token registered.`);
+          }
+        } catch (pushErr) {
+          console.error(`Failed to send push notification to user ${receiverId}:`, pushErr);
+        }
       }
     });
 
