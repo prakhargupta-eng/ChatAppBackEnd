@@ -12,6 +12,14 @@ const loginOrRegister = async (req, res) => {
   if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
 
   try {
+    if (fcmToken) {
+      // Remove this token from any other user to ensure uniqueness
+      await User.updateMany(
+        { fcmToken },
+        { $unset: { fcmToken: "" } }
+      );
+    }
+
     let user = await User.findOne({ username });
     if (!user) {
       // Create user if not exists (dummy logic)
@@ -33,7 +41,20 @@ const loginOrRegister = async (req, res) => {
   }
 };
 
-const logout = (req, res) => {
+const logout = async (req, res) => {
+  try {
+    // Attempt to read the token and clear the user's FCM token from DB
+    const token = req.cookies.jwt;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && decoded.userId) {
+        await User.findByIdAndUpdate(decoded.userId, { $unset: { fcmToken: "" } });
+      }
+    }
+  } catch (error) {
+    console.error('Error clearing FCM token during logout:', error.message);
+  }
+
   res.cookie('jwt', '', { maxAge: 1 });
   res.status(200).json({ message: 'Logged out successfully' });
 };

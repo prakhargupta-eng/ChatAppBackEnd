@@ -4,8 +4,8 @@ const fs = require('fs');
 
 const initFirebase = () => {
   try {
-    // Path to the downloaded JSON key file in the root directory
-    const serviceAccountPath = path.join(__dirname, '../../chatapp-19c40-firebase-adminsdk-fbsvc-f3f7776dd9.json');
+    // Path to the downloaded JSON key file in the src directory
+    const serviceAccountPath = path.join(__dirname, '../chatapp-19c40-firebase-adminsdk-fbsvc-9037529324.json');
     
     if (fs.existsSync(serviceAccountPath)) {
       const serviceAccount = require(serviceAccountPath);

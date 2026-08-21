@@ -106,7 +106,7 @@ const initChatSocket = (io) => {
                 messageId: String(messageId || '')
               }
             });
-            console.log(`Push notification sent to user ${receiverId}`);
+            console.log(`[PUSH NOTIFICATION] Sent to user ${receiverId} (Username: ${receiver.username}). Message: "${text}"`);
           } else {
             console.log(`User ${receiverId} does not have an FCM token registered.`);
           }
