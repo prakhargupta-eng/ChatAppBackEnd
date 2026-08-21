@@ -34,6 +34,39 @@ const initChatSocket = (io) => {
       }
     });
 
+    // Frontend manually setting themselves online (e.g., coming to foreground)
+    socket.on('user_online', (payload) => {
+      console.log('[SOCKET EVENT] user_online (manual)', payload);
+      let userId = payload && typeof payload === 'object' ? (payload.userId || payload.id) : payload;
+      userId = String(userId);
+
+      if (!connectedUsers.has(userId)) {
+        connectedUsers.set(userId, new Set());
+      }
+      connectedUsers.get(userId).add(socket.id);
+      
+      if (connectedUsers.get(userId).size === 1) {
+        socket.broadcast.emit('user_online', { userId });
+      }
+    });
+
+    // Frontend manually setting themselves offline (e.g., going to background)
+    socket.on('user_offline', (payload) => {
+      console.log('[SOCKET EVENT] user_offline (manual)', payload);
+      let userId = payload && typeof payload === 'object' ? (payload.userId || payload.id) : payload;
+      userId = String(userId);
+
+      const sockets = connectedUsers.get(userId);
+      if (sockets && sockets.has(socket.id)) {
+        sockets.delete(socket.id);
+        
+        if (sockets.size === 0) {
+          connectedUsers.delete(userId);
+          socket.broadcast.emit('user_offline', { userId });
+        }
+      }
+    });
+
     // 1. Sending a message
     socket.on('send_message', async (data) => {
       console.log('[SOCKET EVENT] send_message', data);
