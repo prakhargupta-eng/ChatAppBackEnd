@@ -4,17 +4,16 @@ const fs = require('fs');
 
 const initFirebase = () => {
   try {
-    // Path to the downloaded JSON key file in the src directory
-    const serviceAccountPath = path.join(__dirname, '../chatapp-19c40-firebase-adminsdk-fbsvc-9037529324.json');
+    const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     
-    if (fs.existsSync(serviceAccountPath)) {
-      const serviceAccount = require(serviceAccountPath);
+    if (envKey) {
+      const serviceAccount = JSON.parse(envKey);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
       });
-      console.log('Firebase Admin SDK initialized successfully with JSON key.');
+      console.log('Firebase Admin SDK initialized successfully via Environment Variable.');
     } else {
-      console.warn(`Firebase Admin SDK not initialized: Could not find key at ${serviceAccountPath}`);
+      console.warn('Firebase Admin SDK not initialized: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is missing.');
     }
   } catch (error) {
     console.error('Failed to initialize Firebase Admin SDK:', error);
