@@ -10,7 +10,14 @@ const initChatSocket = (io) => {
     console.log(`User connected: ${socket.id}`);
 
     // Client emits 'register' with their userId after connecting
-    socket.on('register', (userId) => {
+    socket.on('register', (payload) => {
+      // In case the frontend sends an object instead of a string
+      let userId = payload;
+      if (payload && typeof payload === 'object') {
+        userId = payload.userId || payload.id;
+      }
+      userId = String(userId);
+
       connectedUsers.set(userId, socket.id);
       console.log(`User ${userId} registered with socket ${socket.id}`);
       // Acknowledge registration and send the list of currently online users
@@ -61,7 +68,8 @@ const initChatSocket = (io) => {
       socket.emit('message_status', { messageId, status: 'sent', receiverId, conversationId });
 
       // Check if recipient is connected
-      const recipientSocketId = connectedUsers.get(receiverId);
+      const safeReceiverId = String(receiverId);
+      const recipientSocketId = connectedUsers.get(safeReceiverId);
       if (recipientSocketId) {
         // Forward message to recipient using 'new_message' event
         io.to(recipientSocketId).emit('new_message', {
@@ -111,7 +119,8 @@ const initChatSocket = (io) => {
         console.error('Error updating message status to delivered:', err);
       }
 
-      const originalSenderSocketId = connectedUsers.get(senderId);
+      const safeSenderId = String(senderId);
+      const originalSenderSocketId = connectedUsers.get(safeSenderId);
 
       if (originalSenderSocketId) {
         // Forward 'delivered' status to original sender (Double tick)
@@ -130,7 +139,8 @@ const initChatSocket = (io) => {
         console.error('Error updating message status to read:', err);
       }
 
-      const originalSenderSocketId = connectedUsers.get(senderId);
+      const safeSenderId = String(senderId);
+      const originalSenderSocketId = connectedUsers.get(safeSenderId);
 
       if (originalSenderSocketId) {
         // Forward 'read' status to original sender (Blue double tick)
@@ -142,7 +152,8 @@ const initChatSocket = (io) => {
     socket.on('typing', (data) => {
       console.log('[SOCKET EVENT] typing', data);
       const { senderId, receiverId, conversationId } = data;
-      const recipientSocketId = connectedUsers.get(receiverId);
+      const safeReceiverId = String(receiverId);
+      const recipientSocketId = connectedUsers.get(safeReceiverId);
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('typing', { senderId, conversationId });
       }
@@ -151,7 +162,8 @@ const initChatSocket = (io) => {
     socket.on('stop_typing', (data) => {
       console.log('[SOCKET EVENT] stop_typing', data);
       const { senderId, receiverId, conversationId } = data;
-      const recipientSocketId = connectedUsers.get(receiverId);
+      const safeReceiverId = String(receiverId);
+      const recipientSocketId = connectedUsers.get(safeReceiverId);
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('stop_typing', { senderId, conversationId });
       }
