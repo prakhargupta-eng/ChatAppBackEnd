@@ -1,6 +1,7 @@
 const Message = require('../models/message.model');
 const User = require('../models/user.model');
 const { admin } = require('../config/firebase');
+const { getMessaging } = require('firebase-admin/messaging');
 
 // In-memory mapping of userId to a Set of socket.ids (Supports multi-device)
 const connectedUsers = new Map();
@@ -94,7 +95,7 @@ const initChatSocket = (io) => {
         try {
           const receiver = await User.findById(receiverId);
           if (receiver && receiver.fcmToken) {
-            await admin.messaging().send({
+            await getMessaging().send({
               token: receiver.fcmToken,
               notification: {
                 title: senderName || 'New Message',
