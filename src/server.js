@@ -4,11 +4,15 @@ const { Server } = require('socket.io');
 const dotenv = require('dotenv');
 const app = require('./app');
 const initChatSocket = require('./sockets/chat.socket');
+const { initFirebase } = require('./config/firebase');
 
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp';
+
+// Initialize Firebase Admin SDK
+initFirebase();
 
 const server = http.createServer(app);
 

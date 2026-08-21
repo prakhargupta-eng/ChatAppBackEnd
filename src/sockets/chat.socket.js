@@ -85,9 +85,9 @@ const initChatSocket = (io) => {
                 body: text
               },
               data: {
-                conversationId,
-                senderId,
-                messageId
+                conversationId: String(conversationId || ''),
+                senderId: String(senderId || ''),
+                messageId: String(messageId || '')
               }
             });
             console.log(`Push notification sent to user ${receiverId}`);
