@@ -1,4 +1,5 @@
 const User = require('../models/user.model');
+const { getMessaging } = require('firebase-admin/messaging');
 
 const getMe = async (req, res) => {
   try {
@@ -33,4 +34,33 @@ const updateFCMToken = async (req, res) => {
   }
 };
 
-module.exports = { getMe, getAllUsers, updateFCMToken };
+const testPushNotification = async (req, res) => {
+  try {
+    const { title, body } = req.body;
+    
+    // Look up current user's FCM token
+    const user = await User.findById(req.user.userId);
+    if (!user || !user.fcmToken) {
+      return res.status(400).json({ error: 'User does not have an FCM token registered' });
+    }
+
+    const payload = {
+      token: user.fcmToken,
+      notification: {
+        title: title || 'Test Notification',
+        body: body || 'This is a test push notification from your backend!'
+      },
+      data: {
+        test: 'true'
+      }
+    };
+
+    const response = await getMessaging().send(payload);
+    res.status(200).json({ message: 'Push notification sent successfully!', response });
+  } catch (error) {
+    console.error('Test Push Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { getMe, getAllUsers, updateFCMToken, testPushNotification };

@@ -1,6 +1,5 @@
 const Message = require('../models/message.model');
 const User = require('../models/user.model');
-const { admin } = require('../config/firebase');
 const { getMessaging } = require('firebase-admin/messaging');
 
 // In-memory mapping of userId to a Set of socket.ids (Supports multi-device)

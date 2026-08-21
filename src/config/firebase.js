@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,8 +8,8 @@ const initFirebase = () => {
     
     if (envKey) {
       const serviceAccount = JSON.parse(envKey);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      initializeApp({
+        credential: cert(serviceAccount)
       });
       console.log('Firebase Admin SDK initialized successfully via Environment Variable.');
     } else {
@@ -20,4 +20,4 @@ const initFirebase = () => {
   }
 };
 
-module.exports = { admin, initFirebase };
+module.exports = { initFirebase };
