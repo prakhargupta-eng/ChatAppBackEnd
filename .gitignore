@@ -4,3 +4,4 @@ src/chatapp-19c40-firebase-adminsdk-fbsvc-9037529324.json
 
 node_modules/
 *.log
+.DS_Store

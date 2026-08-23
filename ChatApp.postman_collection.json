@@ -78,6 +78,54 @@
               "path": ["api", "users"]
             }
           }
+        },
+        {
+          "name": "Update FCM Token",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fcmToken\": \"your_device_fcm_token_here\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/fcm-token",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "users", "fcm-token"]
+            }
+          }
+        },
+        {
+          "name": "Test Push Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Test Title\",\n    \"body\": \"This is a test notification\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/users/test-push",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "users", "test-push"]
+            }
+          }
         }
       ]
     },

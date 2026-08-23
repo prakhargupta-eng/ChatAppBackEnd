@@ -4,13 +4,30 @@ const { getMessaging } = require('firebase-admin/messaging');
 
 // In-memory mapping of userId to a Set of socket.ids (Supports multi-device)
 const connectedUsers = new Map();
+const SOCKET_EVENTS = {
+  REGISTER: 'register',
+  REGISTERED: 'registered',
+  USER_ONLINE: 'user_online',
+  USER_OFFLINE: 'user_offline',
+  SEND_MESSAGE: 'send_message',
+  MESSAGE_STATUS: 'message_status',
+  NEW_MESSAGE: 'new_message',
+  MESSAGE_DELIVERED: 'message_delivered',
+  MESSAGE_READ: 'message_read',
+  TYPING: 'typing',
+  STOP_TYPING: 'stop_typing',
+  CONNECTION: 'connection',
+  DISCONNECT: 'disconnect',
+};
+
+
 
 const initChatSocket = (io) => {
-  io.on('connection', (socket) => {
+  io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
     console.log(`User connected: ${socket.id}`);
 
     // Client emits 'register' with their userId after connecting
-    socket.on('register', (payload) => {
+    socket.on(SOCKET_EVENTS.REGISTER, (payload) => {
       // In case the frontend sends an object instead of a string
       let userId = payload;
       if (payload && typeof payload === 'object') {
@@ -26,16 +43,17 @@ const initChatSocket = (io) => {
       
       // Acknowledge registration and send the list of currently online users
       const onlineUsers = Array.from(connectedUsers.keys());
-      socket.emit('registered', { status: 'success', onlineUsers });
+      socket.emit(SOCKET_EVENTS.REGISTERED, { status: 'success', onlineUsers });
       
       // Notify others that this user is online ONLY if this is their first device connecting
       if (connectedUsers.get(userId).size === 1) {
-        socket.broadcast.emit('user_online', { userId });
+        socket.broadcast.emit(SOCKET_EVENTS.USER_ONLINE, { userId });
       }
     });
 
-    // Frontend manually setting themselves online (e.g., coming to foreground)
-    socket.on('user_online', (payload) => {
+
+    // Frontend manually setting themselves online (fallback / coming to foreground)
+    socket.on(SOCKET_EVENTS.USER_ONLINE, (payload) => {
       console.log('[SOCKET EVENT] user_online (manual)', payload);
       let userId = payload && typeof payload === 'object' ? (payload.userId || payload.id) : payload;
       userId = String(userId);
@@ -46,12 +64,12 @@ const initChatSocket = (io) => {
       connectedUsers.get(userId).add(socket.id);
       
       if (connectedUsers.get(userId).size === 1) {
-        socket.broadcast.emit('user_online', { userId });
+        socket.broadcast.emit(SOCKET_EVENTS.USER_ONLINE, { userId });
       }
     });
 
-    // Frontend manually setting themselves offline (e.g., going to background)
-    socket.on('user_offline', (payload) => {
+    // Frontend manually setting themselves offline (fallback / going to background)
+    socket.on(SOCKET_EVENTS.USER_OFFLINE, (payload) => {
       console.log('[SOCKET EVENT] user_offline (manual)', payload);
       let userId = payload && typeof payload === 'object' ? (payload.userId || payload.id) : payload;
       userId = String(userId);
@@ -62,13 +80,12 @@ const initChatSocket = (io) => {
         
         if (sockets.size === 0) {
           connectedUsers.delete(userId);
-          socket.broadcast.emit('user_offline', { userId });
+          socket.broadcast.emit(SOCKET_EVENTS.USER_OFFLINE, { userId });
         }
       }
     });
 
-    // 1. Sending a message
-    socket.on('send_message', async (data) => {
+    socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
       console.log('[SOCKET EVENT] send_message', data);
       
       const { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
@@ -104,7 +121,7 @@ const initChatSocket = (io) => {
       }
 
       // Immediately acknowledge to sender that message is sent (Single tick)
-      socket.emit('message_status', { messageId, status: 'sent', receiverId, conversationId });
+      socket.emit(SOCKET_EVENTS.MESSAGE_STATUS, { messageId, status: 'sent', receiverId, conversationId });
 
       // Check if recipient is connected
       const safeReceiverId = String(receiverId);
@@ -112,7 +129,7 @@ const initChatSocket = (io) => {
       if (recipientSockets && recipientSockets.size > 0) {
         // Forward message to all of recipient's connected devices
         for (const sockId of recipientSockets) {
-          io.to(sockId).emit('new_message', {
+          io.to(sockId).emit(SOCKET_EVENTS.NEW_MESSAGE, {
             messageId,
             conversationId,
             senderId,
@@ -136,7 +153,26 @@ const initChatSocket = (io) => {
               data: {
                 conversationId: String(conversationId || ''),
                 senderId: String(senderId || ''),
-                messageId: String(messageId || '')
+                messageId: String(messageId || ''),
+                custom_content_type: '1',
+                article_id: '12345'
+              },
+              apns: {
+                headers: {
+                  'apns-push-type': 'alert',
+                  'apns-priority': '10'
+                },
+                payload: {
+                  aps: {
+                    alert: {
+                      title: senderName || 'New Message',
+                      body: text
+                    },
+                    sound: 'new_Notification.wav',
+                    badge: 1,
+                    'mutable-content': 1
+                  }
+                }
               }
             });
             console.log(`[PUSH NOTIFICATION] Sent to user ${receiverId} (Username: ${receiver.username}). Message: "${text}"`);
@@ -150,7 +186,7 @@ const initChatSocket = (io) => {
     });
 
     // 2. Message Delivered
-    socket.on('message_delivered', async (data) => {
+    socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, async (data) => {
       console.log('[SOCKET EVENT] message_delivered', data);
       const { messageId, senderId, receiverId, conversationId } = data;
       
@@ -166,13 +202,13 @@ const initChatSocket = (io) => {
       if (originalSenderSockets) {
         // Forward 'delivered' status to all of original sender's devices (Double tick)
         for (const sockId of originalSenderSockets) {
-          io.to(sockId).emit('message_delivered', { messageId, receiverId, conversationId });
+          io.to(sockId).emit(SOCKET_EVENTS.MESSAGE_DELIVERED, { messageId, receiverId, conversationId });
         }
       }
     });
 
     // 3. Message Read
-    socket.on('message_read', async (data) => {
+    socket.on(SOCKET_EVENTS.MESSAGE_READ, async (data) => {
       console.log('[SOCKET EVENT] message_read', data);
       const { messageId, senderId, receiverId, conversationId } = data;
 
@@ -188,38 +224,38 @@ const initChatSocket = (io) => {
       if (originalSenderSockets) {
         // Forward 'read' status to all of original sender's devices (Blue double tick)
         for (const sockId of originalSenderSockets) {
-          io.to(sockId).emit('message_read', { messageId, receiverId, conversationId });
+          io.to(sockId).emit(SOCKET_EVENTS.MESSAGE_READ, { messageId, receiverId, conversationId });
         }
       }
     });
 
     // 4. Typing Events
-    socket.on('typing', (data) => {
+    socket.on(SOCKET_EVENTS.TYPING, (data) => {
       console.log('[SOCKET EVENT] typing', data);
       const { senderId, receiverId, conversationId } = data;
       const safeReceiverId = String(receiverId);
       const recipientSockets = connectedUsers.get(safeReceiverId);
       if (recipientSockets) {
         for (const sockId of recipientSockets) {
-          io.to(sockId).emit('typing', { senderId, conversationId });
+          io.to(sockId).emit(SOCKET_EVENTS.TYPING, { senderId, conversationId });
         }
       }
     });
 
-    socket.on('stop_typing', (data) => {
+    socket.on(SOCKET_EVENTS.STOP_TYPING, (data) => {
       console.log('[SOCKET EVENT] stop_typing', data);
       const { senderId, receiverId, conversationId } = data;
       const safeReceiverId = String(receiverId);
       const recipientSockets = connectedUsers.get(safeReceiverId);
       if (recipientSockets) {
         for (const sockId of recipientSockets) {
-          io.to(sockId).emit('stop_typing', { senderId, conversationId });
+          io.to(sockId).emit(SOCKET_EVENTS.STOP_TYPING, { senderId, conversationId });
         }
       }
     });
 
     // Handle disconnect
-    socket.on('disconnect', () => {
+    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
       console.log(`User disconnected: ${socket.id}`);
       // Remove from map
       for (let [userId, sockets] of connectedUsers.entries()) {
@@ -231,7 +267,7 @@ const initChatSocket = (io) => {
             connectedUsers.delete(userId);
             console.log(`User ${userId} fully offline`);
             // Notify others that this user is completely offline
-            socket.broadcast.emit('user_offline', { userId });
+            socket.broadcast.emit(SOCKET_EVENTS.USER_OFFLINE, { userId });
           }
           break;
         }
