@@ -257,6 +257,9 @@ const initChatSocket = (io) => {
       for (const msg of messages) {
          await processSingleMessage(io, socket, msg);
       }
+
+      // Notify the frontend that all offline messages have been processed
+      socket.emit('local_queue_flushed', { status: 'success' });
     });
 
     socket.on('active_chat', (payload) => {
