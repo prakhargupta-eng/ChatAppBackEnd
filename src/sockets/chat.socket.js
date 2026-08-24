@@ -30,6 +30,7 @@ const SOCKET_EVENTS = {
   MESSAGE_READ: 'message_read',
   TYPING: 'typing',
   STOP_TYPING: 'stop_typing',
+  CURRENT_CHAT_USER: 'current_chat_user',
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',
 };
@@ -332,6 +333,30 @@ const initChatSocket = (io) => {
       if (recipientSockets) {
         for (const sockId of recipientSockets) {
           io.to(sockId).emit(SOCKET_EVENTS.STOP_TYPING, { senderId, conversationId });
+        }
+      }
+    });
+
+    // 5. Current Chat User Status
+    socket.on(SOCKET_EVENTS.CURRENT_CHAT_USER, (data) => {
+      console.log('[SOCKET EVENT] current_chat_user', data);
+      const { senderId, receiverId, isChatOpen, conversationId } = data;
+      
+      // Bind to push notification tracking
+      if (isChatOpen && conversationId) {
+        activeChats.set(socket.id, String(conversationId));
+      } else {
+        activeChats.delete(socket.id);
+      }
+
+      const safeReceiverId = String(receiverId);
+      const recipientSockets = connectedUsers.get(safeReceiverId);
+      if (recipientSockets) {
+        for (const sockId of recipientSockets) {
+          io.to(sockId).emit(SOCKET_EVENTS.CURRENT_CHAT_USER, { 
+            senderId, 
+            isChatOpen 
+          });
         }
       }
     });

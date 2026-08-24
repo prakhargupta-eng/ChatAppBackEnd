@@ -6,6 +6,24 @@
   },
   "item": [
     {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
       "name": "Authentication",
       "item": [
         {
@@ -26,9 +44,15 @@
             "url": {
               "raw": "http://localhost:3000/api/auth/login",
               "protocol": "http",
-              "host": ["localhost"],
+              "host": [
+                "localhost"
+              ],
               "port": "3000",
-              "path": ["api", "auth", "login"]
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -40,9 +64,15 @@
             "url": {
               "raw": "http://localhost:3000/api/auth/logout",
               "protocol": "http",
-              "host": ["localhost"],
+              "host": [
+                "localhost"
+              ],
               "port": "3000",
-              "path": ["api", "auth", "logout"]
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
             }
           }
         }
@@ -59,9 +89,15 @@
             "url": {
               "raw": "http://localhost:3000/api/users/me",
               "protocol": "http",
-              "host": ["localhost"],
+              "host": [
+                "localhost"
+              ],
               "port": "3000",
-              "path": ["api", "users", "me"]
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
             }
           }
         },
@@ -73,9 +109,14 @@
             "url": {
               "raw": "http://localhost:3000/api/users",
               "protocol": "http",
-              "host": ["localhost"],
+              "host": [
+                "localhost"
+              ],
               "port": "3000",
-              "path": ["api", "users"]
+              "path": [
+                "api",
+                "users"
+              ]
             }
           }
         },
@@ -97,9 +138,15 @@
             "url": {
               "raw": "http://localhost:3000/api/users/fcm-token",
               "protocol": "http",
-              "host": ["localhost"],
+              "host": [
+                "localhost"
+              ],
               "port": "3000",
-              "path": ["api", "users", "fcm-token"]
+              "path": [
+                "api",
+                "users",
+                "fcm-token"
+              ]
             }
           }
         },
@@ -121,9 +168,15 @@
             "url": {
               "raw": "http://localhost:3000/api/users/test-push",
               "protocol": "http",
-              "host": ["localhost"],
+              "host": [
+                "localhost"
+              ],
               "port": "3000",
-              "path": ["api", "users", "test-push"]
+              "path": [
+                "api",
+                "users",
+                "test-push"
+              ]
             }
           }
         }
@@ -156,7 +209,7 @@
     },
     {
       "name": "Socket.IO Details",
-      "description": "Note: Create a new Socket.IO request in Postman and connect to http://localhost:3000\n\nEVENTS TO EMIT:\n1. 'register': Emit with text 'your_user_id'\n2. 'send_message': Emit JSON -> {\"messageId\": \"msg_123\", \"conversationId\": \"conv_456\", \"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"text\": \"Hello\", \"createdAt\": \"2026-08-20T07:30:00Z\", \"type\": \"text\"}\n3. 'message_delivered': Emit JSON -> {\"messageId\": \"msg_123\", \"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"conversationId\": \"conv_456\"}\n4. 'message_read': Emit JSON -> same as message_delivered\n5. 'typing': Emit JSON -> {\"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"conversationId\": \"conv_456\"}\n6. 'stop_typing': Emit JSON -> same as typing\n\nEVENTS TO LISTEN FOR:\n- registered\n- new_message\n- message_status\n- message_delivered\n- message_read\n- typing\n- stop_typing\n- user_online\n- user_offline",
+      "description": "Note: Create a new Socket.IO request in Postman and connect to http://localhost:3000\n\nEVENTS TO EMIT:\n1. 'register': Emit with text 'your_user_id'\n2. 'send_message': Emit JSON -> {\"messageId\": \"msg_123\", \"conversationId\": \"conv_456\", \"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"text\": \"Hello\", \"createdAt\": \"2026-08-20T07:30:00Z\", \"type\": \"text\"}\n3. 'message_delivered': Emit JSON -> {\"messageId\": \"msg_123\", \"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"conversationId\": \"conv_456\"}\n4. 'message_read': Emit JSON -> same as message_delivered\n5. 'typing': Emit JSON -> {\"senderId\": \"user_A\", \"receiverId\": \"user_B\", \"conversationId\": \"conv_456\"}\n6. 'stop_typing': Emit JSON -> same as typing\n7. 'active_chat': Emit JSON -> {\"conversationId\": \"conv_456\"} (or null to clear)\n8. 'sync_offline_messages': Emit JSON -> {\"messages\": [ <array_of_send_message_objects> ]}\n\nEVENTS TO LISTEN FOR:\n- registered\n- new_message\n- message_status\n- message_delivered\n- message_read\n- typing\n- stop_typing\n- user_online\n- user_offline",
       "item": [
         {
           "name": "Socket URL (Use in New Socket.IO Request)",
