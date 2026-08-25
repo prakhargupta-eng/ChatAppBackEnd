@@ -243,10 +243,6 @@ const initChatSocket = (io) => {
     });
 
     socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
-      if (isRateLimited(socket.id, SOCKET_EVENTS.SEND_MESSAGE, 400)) {
-         console.log('Rate limited SEND_MESSAGE for socket', socket.id);
-         return;
-      }
       await processSingleMessage(io, socket, data);
     });
 
