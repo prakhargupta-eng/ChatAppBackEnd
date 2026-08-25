@@ -5,19 +5,7 @@ const { getMessaging } = require('firebase-admin/messaging');
 // In-memory mapping of userId to a Set of socket.ids (Supports multi-device)
 const connectedUsers = new Map();
 const activeChats = new Map();
-const rateLimits = new Map();
 
-function isRateLimited(socketId, event, delayMs = 400) {
-  const key = `${socketId}_${event}`;
-  const now = Date.now();
-  if (rateLimits.has(key)) {
-     if (now - rateLimits.get(key) < delayMs) {
-         return true; // Rate limited
-     }
-  }
-  rateLimits.set(key, now);
-  return false;
-}
 const SOCKET_EVENTS = {
   REGISTER: 'register',
   REGISTERED: 'registered',
@@ -39,9 +27,11 @@ const SOCKET_EVENTS = {
 
 
 async function processSingleMessage(io, socket, data) {
-      console.log('[SOCKET EVENT] processing message', data.messageId);
+      const crypto = require('crypto');
+      const messageId = data.messageId || data.id || data._id || crypto.randomUUID();
+      console.log('[SOCKET EVENT] processing message', messageId);
       
-      const { messageId, conversationId, senderId, receiverId, text, createdAt, type } = data;
+      const { conversationId, senderId, receiverId, text, createdAt, type } = data;
       let { senderName, receiverName } = data;
 
       // Save message to database
@@ -161,21 +151,48 @@ const initChatSocket = (io) => {
       connectedUsers.get(userId).add(socket.id);
       console.log(`User ${userId} registered with socket ${socket.id}`);
       
-      // Acknowledge registration and send the list of currently online users
-      const onlineUsers = Array.from(connectedUsers.keys());
-      socket.emit(SOCKET_EVENTS.REGISTERED, { status: 'success', onlineUsers });
+      // We will acknowledge registration further down, after fetching contacts
       
-      // Notify others that this user is online ONLY if this is their first device connecting
-      if (connectedUsers.get(userId).size === 1) {
-        socket.broadcast.emit(SOCKET_EVENTS.USER_ONLINE, { userId });
+      // Target presence: Only notify people who have actually chatted with this user
+      let contactIds = new Set();
+      try {
+        const distinctConvos = await Message.distinct('conversationId', {
+          $or: [{ senderId: userId }, { receiverId: userId }]
+        });
+        for (const convoId of distinctConvos) {
+          const parts = convoId.split('_');
+          if (parts.length === 2) {
+            contactIds.add(parts[0] === String(userId) ? parts[1] : parts[0]);
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching contacts for presence', e);
       }
 
-      // Also let this newly registered user know about everyone else who is already online
-      for (const otherUserId of connectedUsers.keys()) {
-        if (otherUserId !== userId) {
-          socket.emit(SOCKET_EVENTS.USER_ONLINE, { userId: otherUserId });
+      // Notify contacts that this user is online ONLY if this is their first device connecting
+      if (connectedUsers.get(userId).size === 1) {
+        for (const contactId of contactIds) {
+          const contactSockets = connectedUsers.get(contactId);
+          if (contactSockets) {
+            for (const sockId of contactSockets) {
+              io.to(sockId).emit(SOCKET_EVENTS.USER_ONLINE, { userId });
+            }
+          }
         }
       }
+
+      // Let this newly registered user know about their contacts who are already online
+      // We also build an array to send in the REGISTERED payload so the frontend requires ZERO changes
+      const onlineContacts = [];
+      for (const contactId of contactIds) {
+        if (connectedUsers.has(contactId)) {
+          onlineContacts.push(contactId);
+          socket.emit(SOCKET_EVENTS.USER_ONLINE, { userId: contactId });
+        }
+      }
+
+      // Acknowledge registration and send the filtered list of online contacts
+      socket.emit(SOCKET_EVENTS.REGISTERED, { status: 'success', onlineUsers: onlineContacts });
 
       // Automatically deliver any messages that were sent while the user was offline
       try {
@@ -217,7 +234,7 @@ const initChatSocket = (io) => {
 
 
     // Frontend manually setting themselves online (fallback / coming to foreground)
-    socket.on(SOCKET_EVENTS.USER_ONLINE, (payload) => {
+    socket.on(SOCKET_EVENTS.USER_ONLINE, async (payload) => {
       console.log('[SOCKET EVENT] user_online (manual)', payload);
       let userId = payload && typeof payload === 'object' ? (payload.userId || payload.id) : payload;
       userId = String(userId);
@@ -227,14 +244,33 @@ const initChatSocket = (io) => {
       }
       connectedUsers.get(userId).add(socket.id);
       
+      let contactIds = new Set();
+      try {
+        const distinctConvos = await Message.distinct('conversationId', {
+          $or: [{ senderId: userId }, { receiverId: userId }]
+        });
+        for (const convoId of distinctConvos) {
+          const parts = convoId.split('_');
+          if (parts.length === 2) {
+            contactIds.add(parts[0] === String(userId) ? parts[1] : parts[0]);
+          }
+        }
+      } catch (e) {}
+
       if (connectedUsers.get(userId).size === 1) {
-        socket.broadcast.emit(SOCKET_EVENTS.USER_ONLINE, { userId });
+        for (const contactId of contactIds) {
+          const contactSockets = connectedUsers.get(contactId);
+          if (contactSockets) {
+            for (const sockId of contactSockets) {
+              io.to(sockId).emit(SOCKET_EVENTS.USER_ONLINE, { userId });
+            }
+          }
+        }
       }
 
-      // Send all currently online users back to this user, so they immediately know who is online
-      for (const otherUserId of connectedUsers.keys()) {
-        if (otherUserId !== userId) {
-          socket.emit(SOCKET_EVENTS.USER_ONLINE, { userId: otherUserId });
+      for (const contactId of contactIds) {
+        if (connectedUsers.has(contactId)) {
+          socket.emit(SOCKET_EVENTS.USER_ONLINE, { userId: contactId });
         }
       }
     });
@@ -326,7 +362,6 @@ const initChatSocket = (io) => {
 
     // 4. Typing Events
     socket.on(SOCKET_EVENTS.TYPING, (data) => {
-      if (isRateLimited(socket.id, SOCKET_EVENTS.TYPING, 400)) return;
       console.log('[SOCKET EVENT] typing', data);
       const { senderId, receiverId, conversationId } = data;
       const safeReceiverId = String(receiverId);
@@ -387,8 +422,27 @@ const initChatSocket = (io) => {
           if (sockets.size === 0) {
             connectedUsers.delete(userId);
             console.log(`User ${userId} fully offline`);
-            // Notify others that this user is completely offline
-            socket.broadcast.emit(SOCKET_EVENTS.USER_OFFLINE, { userId });
+            
+            // Notify only contacts that this user is completely offline
+            Message.distinct('conversationId', {
+              $or: [{ senderId: userId }, { receiverId: userId }]
+            }).then(distinctConvos => {
+              const contactIds = new Set();
+              for (const convoId of distinctConvos) {
+                const parts = convoId.split('_');
+                if (parts.length === 2) {
+                  contactIds.add(parts[0] === String(userId) ? parts[1] : parts[0]);
+                }
+              }
+              for (const contactId of contactIds) {
+                const contactSockets = connectedUsers.get(contactId);
+                if (contactSockets) {
+                  for (const sockId of contactSockets) {
+                    io.to(sockId).emit(SOCKET_EVENTS.USER_OFFLINE, { userId });
+                  }
+                }
+              }
+            }).catch(e => console.error('Error fetching contacts on offline', e));
           }
           break;
         }

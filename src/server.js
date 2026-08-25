@@ -21,7 +21,9 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  pingInterval: 10000, // Check connection every 10 seconds (default is 25s)
+  pingTimeout: 5000,   // Disconnect if no response for 5 seconds (default is 20s)
 });
 
 initChatSocket(io);
