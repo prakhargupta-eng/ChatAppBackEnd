@@ -13,4 +13,17 @@ const getChatHistory = async (req, res) => {
   }
 };
 
-module.exports = { getChatHistory };
+const getUndeliveredMessages = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Find all messages sent TO this user that are still marked as 'sent' (not 'delivered' or 'read')
+    const messages = await Message.find({ receiverId: userId, status: 'sent' }).sort({ createdAt: 1 });
+    
+    res.status(200).json({ messages });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { getChatHistory, getUndeliveredMessages };

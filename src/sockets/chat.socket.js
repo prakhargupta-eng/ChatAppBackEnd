@@ -103,10 +103,16 @@ async function processSingleMessage(io, socket, data) {
                 custom_content_type: '1',
                 article_id: '12345'
               },
+              android: {
+                notification: {
+                  tag: String(messageId)
+                }
+              },
               apns: {
                 headers: {
                   'apns-push-type': 'alert',
-                  'apns-priority': '10'
+                  'apns-priority': '10',
+                  'apns-collapse-id': String(messageId)
                 },
                 payload: {
                   aps: {
@@ -134,7 +140,7 @@ async function processSingleMessage(io, socket, data) {
 const initChatSocket = (io) => {
 
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
-    console.log(`User connected: ${socket.id}`);
+    console.log(`[SOCKET CONNECTED] A new device connected with temporary ID: ${socket.id}`);
 
     // Client emits 'register' with their userId after connecting
     socket.on(SOCKET_EVENTS.REGISTER, async (payload) => {
@@ -149,7 +155,14 @@ const initChatSocket = (io) => {
         connectedUsers.set(userId, new Set());
       }
       connectedUsers.get(userId).add(socket.id);
-      console.log(`User ${userId} registered with socket ${socket.id}`);
+      
+      try {
+        const user = await User.findById(userId);
+        const username = user ? user.username : 'Unknown';
+        console.log(`User ${userId} (${username}) registered with socket ${socket.id}`);
+      } catch (err) {
+        console.log(`User ${userId} registered with socket ${socket.id}`);
+      }
       
       // We will acknowledge registration further down, after fetching contacts
       
@@ -422,6 +435,7 @@ const initChatSocket = (io) => {
           if (sockets.size === 0) {
             connectedUsers.delete(userId);
             console.log(`User ${userId} fully offline`);
+            console.log('4. Unexpected Drop (The DISCONNECT Event) forces fully kill the app');
             
             // Notify only contacts that this user is completely offline
             Message.distinct('conversationId', {
