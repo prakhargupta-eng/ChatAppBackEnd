@@ -170,6 +170,13 @@ const initChatSocket = (io) => {
         socket.broadcast.emit(SOCKET_EVENTS.USER_ONLINE, { userId });
       }
 
+      // Also let this newly registered user know about everyone else who is already online
+      for (const otherUserId of connectedUsers.keys()) {
+        if (otherUserId !== userId) {
+          socket.emit(SOCKET_EVENTS.USER_ONLINE, { userId: otherUserId });
+        }
+      }
+
       // Automatically deliver any messages that were sent while the user was offline
       try {
         const undeliveredMessages = await Message.find({ receiverId: userId, status: 'sent' });
@@ -222,6 +229,13 @@ const initChatSocket = (io) => {
       
       if (connectedUsers.get(userId).size === 1) {
         socket.broadcast.emit(SOCKET_EVENTS.USER_ONLINE, { userId });
+      }
+
+      // Send all currently online users back to this user, so they immediately know who is online
+      for (const otherUserId of connectedUsers.keys()) {
+        if (otherUserId !== userId) {
+          socket.emit(SOCKET_EVENTS.USER_ONLINE, { userId: otherUserId });
+        }
       }
     });
 
