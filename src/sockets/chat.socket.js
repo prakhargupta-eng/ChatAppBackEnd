@@ -105,7 +105,9 @@ async function processSingleMessage(io, socket, data) {
               },
               android: {
                 notification: {
-                  tag: String(messageId)
+                  tag: String(messageId),
+                  channelId: "custom_sound_channel",
+                  sound: "new_notification"
                 }
               },
               apns: {
