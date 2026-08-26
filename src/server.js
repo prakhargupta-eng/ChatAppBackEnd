@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const dotenv = require('dotenv');
 const app = require('./app');
-const initChatSocket = require('./sockets/chat.socket');
+const { initChatSocket } = require('./sockets/chat.socket');
+const { initCallSocket } = require('./sockets/call.socket');
 const { initFirebase } = require('./config/firebase');
 
 dotenv.config();
@@ -22,11 +23,16 @@ const io = new Server(server, {
     origin: '*',
     methods: ['GET', 'POST']
   },
-  pingInterval: 10000, // Check connection every 10 seconds (default is 25s)
-  pingTimeout: 5000,   // Disconnect if no response for 5 seconds (default is 20s)
+  pingInterval: 25000, // Check connection every 25 seconds (default is 25s)
+  pingTimeout: 20000,   // Disconnect if no response for 20 seconds (default is 20s)
 });
 
+// Use strict JWT authentication for all sockets
+const { socketAuthMiddleware } = require('./middleware/socketAuth');
+io.use(socketAuthMiddleware);
+
 initChatSocket(io);
+initCallSocket(io);
 
 // Connect to MongoDB and start server
 mongoose.connect(MONGODB_URI)

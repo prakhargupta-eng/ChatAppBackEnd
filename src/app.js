@@ -26,6 +26,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', require('./routes/chat.routes'));
+app.use('/api/v1/calls', require('./routes/call.routes'));
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK' });

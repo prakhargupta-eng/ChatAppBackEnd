@@ -23,7 +23,8 @@ const loginOrRegister = async (req, res) => {
     let user = await User.findOne({ username });
     if (!user) {
       // Create user if not exists (dummy logic)
-      user = new User({ username, password, fcmToken }); // Password should be hashed in a real app!
+      const randomProfileUrl = `https://api.dicebear.com/9.x/fun-emoji/png?seed=${encodeURIComponent(username)}`;
+      user = new User({ username, password, fcmToken, profileUrl: randomProfileUrl }); // Password should be hashed in a real app!
       await user.save();
     } else if (user.password !== password) {
       return res.status(401).json({ error: 'Invalid password' });
@@ -35,7 +36,7 @@ const loginOrRegister = async (req, res) => {
 
     const token = generateToken(user._id);
     res.cookie('jwt', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-    res.status(200).json({ message: 'Success', user: { _id: user._id, username: user.username }, token });
+    res.status(200).json({ message: 'Success', user: { _id: user._id, username: user.username, profileUrl: user.profileUrl }, token });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

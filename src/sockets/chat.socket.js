@@ -135,6 +135,12 @@ async function processSingleMessage(io, socket, data) {
           }
         } catch (pushErr) {
           console.error(`Failed to send push notification to user ${receiverId}:`, pushErr);
+          if (pushErr.code === 'messaging/registration-token-not-registered') {
+             // The token is dead/expired. Remove it from the database so we stop attempting.
+             User.findByIdAndUpdate(receiverId, { $unset: { fcmToken: "" } })
+               .then(() => console.log(`Removed dead FCM token for user ${receiverId}`))
+               .catch(err => console.error('Failed to remove dead FCM token:', err));
+          }
         }
       }
 }
@@ -185,7 +191,7 @@ const initChatSocket = (io) => {
       }
 
       // Notify contacts that this user is online ONLY if this is their first device connecting
-      if (connectedUsers.get(userId).size === 1) {
+      if (connectedUsers.get(userId)?.size === 1) {
         for (const contactId of contactIds) {
           const contactSockets = connectedUsers.get(contactId);
           if (contactSockets) {
@@ -272,7 +278,7 @@ const initChatSocket = (io) => {
         }
       } catch (e) {}
 
-      if (connectedUsers.get(userId).size === 1) {
+      if (connectedUsers.get(userId)?.size === 1) {
         for (const contactId of contactIds) {
           const contactSockets = connectedUsers.get(contactId);
           if (contactSockets) {
@@ -402,7 +408,7 @@ const initChatSocket = (io) => {
 
     // 5. Current Chat User Status
     socket.on(SOCKET_EVENTS.CURRENT_CHAT_USER, (data) => {
-      console.log('[SOCKET EVENT] current_chat_user', data);
+      // console.log('[SOCKET EVENT] current_chat_user', data);
       const { senderId, receiverId, isChatOpen, conversationId } = data;
       
       // Bind to push notification tracking
@@ -467,4 +473,4 @@ const initChatSocket = (io) => {
   });
 };
 
-module.exports = initChatSocket;
+module.exports = { initChatSocket, connectedUsers };
