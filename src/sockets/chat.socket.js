@@ -1,5 +1,6 @@
 const Message = require('../models/message.model');
 const User = require('../models/user.model');
+const Call = require('../models/call.model');
 const { getMessaging } = require('firebase-admin/messaging');
 
 // In-memory mapping of userId to a Set of socket.ids (Supports multi-device)
@@ -431,7 +432,7 @@ const initChatSocket = (io) => {
     });
 
     // Handle disconnect
-    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+    socket.on(SOCKET_EVENTS.DISCONNECT, async () => {
       console.log(`User disconnected: ${socket.id}`);
       activeChats.delete(socket.id);
       // Remove from map
@@ -444,6 +445,32 @@ const initChatSocket = (io) => {
             connectedUsers.delete(userId);
             console.log(`User ${userId} fully offline`);
             console.log('4. Unexpected Drop (The DISCONNECT Event) forces fully kill the app');
+
+            // --- CALL CLEANUP: End any active calls for this user ---
+            try {
+              const activeCalls = await Call.find({
+                $or: [{ callerId: userId }, { receiverId: userId }],
+                status: { $in: ['ringing', 'connected'] }
+              });
+              
+              for (const call of activeCalls) {
+                call.status = 'ended';
+                call.endedAt = new Date();
+                await call.save();
+                
+                // Notify the other party if they are online
+                const otherUserId = String(call.callerId) === userId ? String(call.receiverId) : String(call.callerId);
+                const otherSockets = connectedUsers.get(otherUserId);
+                if (otherSockets) {
+                  for (const sockId of otherSockets) {
+                    io.to(sockId).emit('call:end', { callId: call.callId });
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Error cleaning up active calls on disconnect:', err);
+            }
+            // --------------------------------------------------------
             
             // Notify only contacts that this user is completely offline
             Message.distinct('conversationId', {
